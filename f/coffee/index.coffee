@@ -8,7 +8,7 @@ g.project = (catname, projname, place) =>
   movedRows = true
   !( ->
 
-    tileWidth = $(".main-menu>.tile").eq(0).width()
+    tileWidth = $("#project-tiles>.tile").eq(0).width()
     tilesH = $(".main-menu").width() / tileWidth
     tilesH = Math.round tilesH
     placeAfter = (tilesH + place) - ( place % tilesH )
@@ -23,16 +23,18 @@ g.project = (catname, projname, place) =>
     $(".brace-cap").css "background-color": '#'+WebsiteColors[catname]
     ###
     ###
-    scrollToHere = $(".tile.project").eq(placeAfter-1).after($("#project-view-container")).offset().top
+    placeAfter = $(".tile.project").eq(placeAfter-1)
+    if placeAfter.length is 0
+      placeAfter = $(".tile.project").eq(-1)
+    scrollToHere = placeAfter.after($("#project-view-container")).offset().top
   )()
   ###
   ###
   tile = $(".tile.project").eq(place)
-  $('#project-view-container').css {height:0}
-  if movedRows
-    $("#project-view-container").removeClass "open"
-    ###
-    ###
+  $('#project-view').hide()
+  $("#project-view-container").removeClass "open"
+  ###
+  ###
   if tile.hasClass "active-tile"
     # Close open project
     tile.removeClass "active-tile"
@@ -42,9 +44,9 @@ g.project = (catname, projname, place) =>
     tile.addClass "active-tile"
 
   proj = Website[catname][projname]
-  v = $('#project-view')
+  v = $('#content')
   v.html ""
-  v.show()
+  $('#project-view').show()
   for item, val of proj.items
     item = item.split('-')[0]
     switch item
@@ -56,19 +58,16 @@ g.project = (catname, projname, place) =>
       when "swf"
         v.append """<embed src="projects/#{proj.slug}/#{val}.swf" width="#{v.width()}" height="#{v.width() / 1.33333}" base="." 
             type="application/x-shockwave-flash" pluginspage="http://www.macromedia.com/go/getflashplayer" />"""
-      when "img" then v.append "<img src=\"projects/#{proj.slug}/#{val}\"/>"
+      when "img" then v.append "<div class='imgc'><div class='img-dum'></div><img src=\"projects/#{proj.slug}/#{val}\"/></div>"
       when "logo" then v.append "<img class=\"logo\" src=\"projects/#{proj.slug}/#{val}\"/>"
-  $("#project-view").flowtype({
-   fontRatio : 30
-   lineRatio : 1.45
-  })
-
-  smoothScroll $("html"), scrollToHere, 100
-  $("#project-view-container").removeClass "open"
   window.setTimeout(()->
+    $('#project-view').show()
+    $(".read").flowtype fontRatio : 30, lineRatio : 1.45
+
+    smoothScroll2 scrollToHere, 400
     $('#project-view-container').animate {height:$('#project-view').height()+100}, {
       duration: 1200
-      easing: 'easein'
+      ease: 'easeOutCubic'
       complete: ()->
         say "Now open #{projname}"
         $('#project-view-container').css {height:""}
@@ -87,7 +86,39 @@ g.project = (catname, projname, place) =>
             smoothScroll(el, to, duration - 10);
         }
     }.bind(this), 10);
-}`
+}function smoothScroll2(to, duration) {
+    if (duration < 0) {
+        return;
+    }
+    var difference = to - window.scrollY;
+    var perTick = difference / duration * 10;
+    this.scrollToTimerCache = setTimeout(function() {
+        if (!isNaN(parseInt(perTick, 10))) {
+            window.scrollTo(0, window.scrollY + perTick);
+            smoothScroll2(to, duration - 10);
+        }
+    }.bind(this), 10);
+}function getWindowRelativeOffset(parentWindow, elem) {
+        var offset = {
+            left : 0,
+            top : 0
+        };
+        // relative to the target field's document
+        offset.left = elem.getBoundingClientRect().left;
+        offset.top = elem.getBoundingClientRect().top;
+        // now we will calculate according to the current document, this current
+        // document might be same as the document of target field or it may be
+        // parent of the document of the target field
+        var childWindow = elem.document.frames.window;
+        while (childWindow != parentWindow) {
+            offset.left = offset.left + childWindow.frameElement.getBoundingClientRect().left;
+            offset.top = offset.top + childWindow.frameElement.getBoundingClientRect().top;
+            childWindow = childWindow.parent;
+        }
+
+        return offset;
+    };
+`
 get_a_color= () =>
   letters = 'db97'.split('');
   color = '#';
@@ -95,8 +126,8 @@ get_a_color= () =>
     color += letters[Math.round(Math.random() * 3)]
   color
 WebsiteColors = 
-  "INTERACTIVE MEDIA":"33CBDB"
-  "ANIMATION":"DB3333"
+  "ANIMATION MODELING":"33CBDB"
+  "INTERACTIVE MEDIA":"DB3333"
   "GRAPHIC DESIGN":"910062"
   "TRADITIONAL ART":"5A3662"
 ###
@@ -109,6 +140,10 @@ WebsiteColors =
         "gh-1":"ZombieHippie/VikingsRobot2013"###
 
 $("#intro").bigtext()
+evaluateHashUrl= ->
+    hrefM = window.location.href.split('#')[1]
+    if hrefM?
+      $("a[href='#"+hrefM+"']").parent().parent().click()
 $(window).on "load", (e) ->
   $("#intro").bigtext()
   place = 0
@@ -124,19 +159,22 @@ $(window).on "load", (e) ->
     })
     ###
     for projname, projinfo of catinfo
-      $('.main-menu').append ich.ProjectMin({
+      $('#project-tiles').append ich.ProjectMin({
         projname:projname
         catname:catname
         img:projinfo.img
         place:place++
         color:WebsiteColors[catname]
       })
-  $('#about').appendTo('.main-menu')
-  Zepto.getScript = (url, success, error) ->
-    script = document.createElement("script")
-    $script = $(script)
-    script.src = url
-    $("head").append(script)
-    $script.bind("load", success)
-    $script.bind("error", error)
+  evaluateHashUrl()
+  $(window).on 'hashchange', ->
+    evaluateHashUrl()
+  if Zepto?
+    Zepto.getScript = (url, success, error) ->
+      script = document.createElement("script")
+      $script = $(script)
+      script.src = url
+      $("head").append(script)
+      $script.bind("load", success)
+      $script.bind("error", error)
   $(window).resize()
